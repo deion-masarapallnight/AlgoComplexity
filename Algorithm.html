@@ -1,0 +1,2085 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Algorithm Explorer</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for better aesthetics and readability */
+        :root {
+            --primary-color: #3b82f6; /* blue-500 */
+            --secondary-color: #10b981; /* emerald-500 */
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #2c6489; /* gray-100 */
+        }
+        .algo-button {
+            transition: all 0.15s ease-in-out;
+            box-shadow: 0 4px 6px -1px rgba(24, 39, 181, 0.806), 0 2px 4px -2px rgba(19, 13, 176, 0.1);
+        }
+        .algo-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(9, 72, 154, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+        }
+        .main-card {
+            min-height: 80vh;
+        }
+        textarea, input[type="text"], input[type="number"] {
+            border: 1px solid #315fa5;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.5rem;
+            width: 100%;
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-8">
+
+    <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-2xl p-6 md:p-10 main-card">
+        <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-800 mb-6 border-b-4 border-primary-color pb-2">
+            Interactive Algorithm Explorer
+        </h1>
+
+        <div id="app-container">
+            <!-- Content will be rendered here by JavaScript -->
+            <div class="text-center p-8">
+                <p class="text-gray-500">Loading interactive menu...</p>
+            </div>
+        </div>
+
+        <!-- Hidden Input/Output Templates (Managed by JS) -->
+        <div id="input-area" class="mt-6 p-4 bg-blue-50 rounded-lg hidden">
+            <h3 class="text-xl font-semibold mb-3 text-blue-700">Input Data</h3>
+            <div id="dynamic-inputs">
+                <!-- Specific inputs will be added here -->
+            </div>
+            <button onclick="runAlgorithm()"
+                class="mt-4 w-full bg-secondary-color text-white py-3 px-4 rounded-lg font-bold hover:bg-emerald-600 transition duration-150 algo-button">
+                Run Algorithm
+            </button>
+        </div>
+
+        <div id="output-area" class="mt-8 p-6 bg-gray-50 rounded-lg hidden">
+            <h3 class="text-xl font-semibold mb-3 text-gray-700 border-b pb-2">Results</h3>
+            <pre id="output-display" class="whitespace-pre-wrap font-mono text-sm text-gray-800 bg-white p-3 rounded-md border"></pre>
+        </div>
+
+    </div>
+
+    <script>
+        // --- Global State ---
+        let state = {
+            currentPage: 'category', // 'category', 'algorithm', 'input'
+            selectedCategory: null,
+            selectedAlgorithm: null,
+            algorithmList: {},
+            inputFields: [],
+            output: null
+        };
+
+        const APP_CONTAINER = document.getElementById('app-container');
+        const INPUT_AREA = document.getElementById('input-area');
+        const OUTPUT_AREA = document.getElementById('output-area');
+        const OUTPUT_DISPLAY = document.getElementById('output-display');
+        const DYNAMIC_INPUTS = document.getElementById('dynamic-inputs');
+
+        // --- Algorithm Definitions & Menu Structure ---
+        const ALL_ALGORITHMS = {
+            'Sorting Algorithm': {
+                BubbleSort: { name: 'Bubble Sort', impl: bubbleSort, type: 'array' },
+                MergeSort: { name: 'Merge Sort', impl: mergeSort, type: 'array' },
+                QuickSort: { name: 'Quick Sort', impl: quicksort, type: 'array' },
+                InsertionSort: { name: 'Insertion Sort', impl: insertionSort, type: 'array' },
+                SelectionSort: { name: 'Selection Sort', impl: selectionSort, type: 'array' },
+                CountingSort: { name: 'Counting Sort', impl: countingSort, type: 'array' },
+                HeapSort: { name: 'Heap Sort', impl: heapSort, type: 'array' },
+                ShellSort: { name: 'Shell Sort', impl: shellSort, type: 'array' },
+                RadixSort: { name: 'Radix Sort', impl: radixSort, type: 'array' },
+                CombSort: { name: 'Comb Sort', impl: combSort, type: 'array' }, // IMPLEMENTED
+                TournamentSort: { name: 'Tournament Sort (Heap Selection)', impl: tournamentSort, type: 'array' }, // IMPLEMENTED
+                TreeSort: { name: 'Tree Sort (BST-based)', impl: treeSort, type: 'array' }, // IMPLEMENTED
+                TimSort: { name: 'Tim Sort (Hybrid Run/Merge)', impl: timSort, type: 'array' }, // IMPLEMENTED
+            },
+            'Searching Algorithm': {
+                LinearSearch: { name: 'Linear Search', impl: linearSearch, type: 'search' },
+                BinarySearch: { name: 'Binary Search', impl: binarySearch, type: 'search' },
+                TernarySearch: { name: 'Ternary Search', impl: ternarySearch, type: 'search' },
+                JumpSearch: { name: 'Jump Search', impl: jumpSearch, type: 'search' },
+                InterpolationSearch: { name: 'Interpolation Search', impl: interpolationSearch, type: 'search' },
+                ExponentialSearch: { name: 'Exponential Search', impl: exponentialSearch, type: 'search' },
+            },
+            'String Searching Algorithm': {
+                NaivePatternSearch: { name: 'Naive Pattern Search', impl: naivePatternSearch, type: 'string-search' },
+                KMPAlgorithm: { name: 'Knuth-Morris-Pratt (KMP) Algorithm', impl: kmpSearch, type: 'string-search' },
+                RabinKarpAlgorithm: { name: 'Rabin-Karp Algorithm', impl: rabinKarp, type: 'string-search' },
+                BoyerMooreAlgorithm: { name: 'Boyer-Moore Algorithm (Bad Char Heuristic)', impl: boyerMoore, type: 'string-search' }, // IMPLEMENTED
+                ZAlgorithm: { name: 'Z-Algorithm / Suffix Array / Suffix Tree', impl: notImplemented, type: 'string-search' },
+            },
+            'Greedy Algorithm': {
+                KnapsackProblem: { name: 'Fractional Knapsack Problem', impl: fractionalKnapsack, type: 'knapsack' },
+                HuffmanCoding: { name: 'Huffman Coding', impl: huffmanCoding, type: 'text-input' },
+                ActivitySelectionProblem: { name: 'Activity Selection Problem', impl: activitySelection, type: 'activity-selection' },
+                JobSequencingProblem: { name: 'Job Sequencing Problem', impl: jobSequencing, type: 'job-sequencing' },
+                EgyptianFraction: { name: 'Egyptian Fraction', impl: egyptianFraction, type: 'fraction' },
+                // Graph Algorithms
+                PrimsAlgorithm: { name: "Prim's Algorithm (Graph)", impl: primsAlgorithm, type: 'graph-generic' },
+                KruskalsAlgorithm: { name: "Kruskal's Algorithm (Graph)", impl: kruskalsAlgorithm, type: 'graph-generic' },
+                DijkastrasShortestPathAlgorithm: { name: "Dijkstra's Shortest Path Algorithm (Graph)", impl: dijkstrasAlgorithm, type: 'graph-dijkstra' },
+                BoruvkasAlgorithm: { name: "Boruvka's Algorithm (Graph)", impl: boruvkasAlgorithm, type: 'graph-generic' },
+                DialsAlgorithm: { name: "Dial's Algorithm (Graph, Small Weights)", impl: dialsAlgorithm, type: 'graph-dials' }, // IMPLEMENTED
+            },
+            'Number Theory/System': {
+                GCDLCM: { name: 'Greatest Common Divisor (GCD) / Least Common Multiple (LCM)', impl: gcdLcm, type: 'two-numbers' },
+                BaseConversion: { name: 'Base Conversion', impl: baseConversion, type: 'base-conversion' },
+            },
+            'Identifying Prime': {
+                IsPrime: { name: 'Check if a Number is Prime', impl: isPrime, type: 'one-number' },
+            }
+        };
+
+        // --- Core Rendering Logic ---
+
+        function render() {
+            let content = '';
+            INPUT_AREA.classList.add('hidden');
+            OUTPUT_AREA.classList.add('hidden');
+            APP_CONTAINER.innerHTML = '';
+
+            if (state.currentPage === 'category') {
+                content = renderCategorySelection();
+            } else if (state.currentPage === 'algorithm') {
+                content = renderAlgorithmSelection();
+            } else if (state.currentPage === 'input') {
+                content = renderInputScreen();
+            }
+
+            APP_CONTAINER.innerHTML = content;
+
+            if (state.currentPage === 'input') {
+                INPUT_AREA.classList.remove('hidden');
+                // Re-render input fields specific to the algorithm
+                setupDynamicInputs();
+            }
+
+            if (state.output) {
+                OUTPUT_AREA.classList.remove('hidden');
+                OUTPUT_DISPLAY.textContent = state.output;
+            }
+        }
+
+        function renderCategorySelection() {
+            const categories = Object.keys(ALL_ALGORITHMS);
+            let html = `
+                <p class="text-xl mb-6 text-gray-600 font-medium">Step 1: Choose a category of algorithms.</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            `;
+            categories.forEach(category => {
+                html += `
+                    <button onclick="selectCategory('${category}')"
+                        class="algo-button bg-primary-color text-white p-5 rounded-lg text-lg font-semibold text-left transform hover:scale-[1.02] shadow-md hover:shadow-lg transition">
+                        ${category}
+                    </button>
+                `;
+            });
+            html += `</div>`;
+            return html;
+        }
+
+        function renderAlgorithmSelection() {
+            const algorithms = ALL_ALGORITHMS[state.selectedCategory];
+            const categoryName = state.selectedCategory;
+            let html = `
+                <div class="flex items-center mb-6">
+                    <button onclick="backToCategory()" class="text-primary-color hover:text-blue-700 transition">
+                        &larr; Back to Categories
+                    </button>
+                    <h2 class="text-2xl font-bold ml-4 text-gray-800">${categoryName}</h2>
+                </div>
+                <p class="text-xl mb-6 text-gray-600 font-medium">Step 2: Select a specific algorithm to run.</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            `;
+
+            Object.keys(algorithms).forEach(key => {
+                const algo = algorithms[key];
+                const isImplemented = algo.impl !== notImplemented;
+                const buttonClass = isImplemented ? 'bg-secondary-color hover:bg-emerald-600' : 'bg-gray-400 cursor-not-allowed';
+                const buttonText = isImplemented ? algo.name : `${algo.name} (WIP)`;
+
+                html += `
+                    <button ${isImplemented ? `onclick="selectAlgorithm('${key}')"` : ''}
+                        class="algo-button ${buttonClass} text-white p-4 rounded-lg text-base font-medium text-left transition transform ${isImplemented ? 'hover:scale-[1.01]' : ''}">
+                        ${buttonText}
+                    </button>
+                `;
+            });
+            html += `</div>`;
+            return html;
+        }
+
+        function renderInputScreen() {
+            const algoKey = state.selectedAlgorithm;
+            const algo = ALL_ALGORITHMS[state.selectedCategory][algoKey];
+            let html = `
+                <div class="flex items-center mb-6">
+                    <button onclick="backToAlgorithms()" class="text-primary-color hover:text-blue-700 transition">
+                        &larr; Back to Algorithms
+                    </button>
+                    <h2 class="text-2xl font-bold ml-4 text-gray-800">${algo.name}</h2>
+                </div>
+                <p class="text-xl mb-6 text-gray-600 font-medium">Step 3: Enter the required data.</p>
+            `;
+            return html;
+        }
+
+
+        // --- State Management and Navigation ---
+
+        function selectCategory(category) {
+            state.selectedCategory = category;
+            state.currentPage = 'algorithm';
+            state.selectedAlgorithm = null;
+            state.output = null;
+            render();
+        }
+
+        function backToCategory() {
+            state.selectedCategory = null;
+            state.currentPage = 'category';
+            state.output = null;
+            render();
+        }
+
+        function selectAlgorithm(algoKey) {
+            state.selectedAlgorithm = algoKey;
+            state.currentPage = 'input';
+            state.output = null;
+            render();
+        }
+
+        function backToAlgorithms() {
+            state.selectedAlgorithm = null;
+            state.currentPage = 'algorithm';
+            state.output = null;
+            render();
+        }
+
+
+        // --- Input Field Generation ---
+
+        function setupDynamicInputs() {
+            DYNAMIC_INPUTS.innerHTML = '';
+            state.inputFields = [];
+
+            const algoKey = state.selectedAlgorithm;
+            const algo = ALL_ALGORITHMS[state.selectedCategory][algoKey];
+            const inputType = algo.type;
+
+            let inputs = [];
+
+            if (inputType === 'array') {
+                inputs = [
+                    { id: 'dataArray', label: 'Input Array (Comma-separated numbers)', type: 'text', placeholder: 'e.g., 5, 2, 9, 1, 5, 6' }
+                ];
+            } else if (inputType === 'search') {
+                inputs = [
+                    { id: 'dataArray', label: 'Sorted Array (Comma-separated numbers)', type: 'text', placeholder: 'e.g., 1, 3, 5, 7, 9' },
+                    { id: 'targetValue', label: 'Target Value to Search', type: 'number', placeholder: 'e.g., 7' }
+                ];
+            } else if (inputType === 'string-search') {
+                inputs = [
+                    { id: 'mainText', label: 'Main Text', type: 'text', placeholder: 'e.g., AABAACAADAABAABA' },
+                    { id: 'pattern', label: 'Pattern to Search', type: 'text', placeholder: 'e.g., AABA' }
+                ];
+            } else if (inputType === 'knapsack') {
+                inputs = [
+                    { id: 'weights', label: 'Weights (Comma-separated numbers)', type: 'text', placeholder: 'e.g., 10, 20, 30' },
+                    { id: 'values', label: 'Values (Comma-separated numbers)', type: 'text', placeholder: 'e.g., 60, 100, 120' },
+                    { id: 'capacity', label: 'Knapsack Capacity', type: 'number', placeholder: 'e.g., 50' }
+                ];
+            } else if (inputType === 'text-input') {
+                inputs = [
+                    { id: 'inputText', label: 'Input Text (for frequency/encoding)', type: 'text', placeholder: 'e.g., BAAABBBBCCCD' }
+                ];
+            } else if (inputType === 'one-number') {
+                inputs = [
+                    { id: 'inputNumber', label: 'Input Number', type: 'number', placeholder: 'e.g., 17' }
+                ];
+            } else if (inputType === 'two-numbers') {
+                inputs = [
+                    { id: 'numberA', label: 'First Number (A)', type: 'number', placeholder: 'e.g., 54' },
+                    { id: 'numberB', label: 'Second Number (B)', type: 'number', placeholder: 'e.g., 24' }
+                ];
+            } else if (inputType === 'fraction') {
+                inputs = [
+                    { id: 'numerator', label: 'Numerator', type: 'number', placeholder: 'e.g., 6' },
+                    { id: 'denominator', label: 'Denominator', type: 'number', placeholder: 'e.g., 14' }
+                ];
+            } else if (inputType === 'graph-generic') {
+                inputs = [
+                    { id: 'numNodes', label: 'Number of Nodes (0 to N-1)', type: 'number', placeholder: 'e.g., 4' },
+                    { id: 'edges', label: 'Edges (Format: nodeA,nodeB,weight | one edge per line)', type: 'textarea', placeholder: 'e.g.,\n0,1,10\n0,2,6\n0,3,5\n1,3,15\n2,3,4' }
+                ];
+            } else if (inputType === 'graph-dijkstra') {
+                inputs = [
+                    { id: 'numNodes', label: 'Number of Nodes (0 to N-1)', type: 'number', placeholder: 'e.g., 5' },
+                    { id: 'edges', label: 'Edges (Format: nodeA,nodeB,weight | one edge per line)', type: 'textarea', placeholder: 'e.g.,\n0,1,4\n0,2,1\n2,1,2\n1,3,1\n2,3,5\n3,4,3' },
+                    { id: 'startNode', label: 'Start Node', type: 'number', placeholder: 'e.g., 0' }
+                ];
+            } else if (inputType === 'graph-dials') {
+                inputs = [
+                    { id: 'numNodes', label: 'Number of Nodes (0 to N-1)', type: 'number', placeholder: 'e.g., 5' },
+                    { id: 'edges', label: 'Edges (Format: nodeA,nodeB,weight | one edge per line)', type: 'textarea', placeholder: 'e.g.,\n0,1,3\n0,2,1\n2,1,2\n1,3,1\n2,3,5\n3,4,3' },
+                    { id: 'startNode', label: 'Start Node', type: 'number', placeholder: 'e.g., 0' },
+                    { id: 'maxWeight', label: 'Max Edge Weight (W)', type: 'number', placeholder: 'e.g., 5 (Dial\'s requires small, non-negative integer weights)' }
+                ];
+            } else if (inputType === 'activity-selection') {
+                 inputs = [
+                    { id: 'startTimes', label: 'Start Times (Comma-separated)', type: 'text', placeholder: 'e.g., 1, 3, 0, 5, 8, 5' },
+                    { id: 'finishTimes', label: 'Finish Times (Comma-separated)', type: 'text', placeholder: 'e.g., 2, 4, 6, 7, 9, 9' }
+                ];
+            } else if (inputType === 'job-sequencing') {
+                inputs = [
+                    { id: 'jobIds', label: 'Job IDs (Comma-separated)', type: 'text', placeholder: 'e.g., a, b, c, d, e' },
+                    { id: 'deadlines', label: 'Deadlines (Comma-separated numbers)', type: 'text', placeholder: 'e.g., 2, 1, 2, 1, 3' },
+                    { id: 'profits', label: 'Profits (Comma-separated numbers)', type: 'text', placeholder: 'e.g., 100, 19, 27, 25, 15' }
+                ];
+            } else if (inputType === 'base-conversion') {
+                inputs = [
+                    { id: 'numberInput', label: 'Number to Convert', type: 'text', placeholder: 'e.g., 1A' },
+                    { id: 'fromBase', label: 'From Base (2-36)', type: 'number', placeholder: 'e.g., 16' },
+                    { id: 'toBase', label: 'To Base (2-36)', type: 'number', placeholder: 'e.g., 10' }
+                ];
+            } else {
+                // Generic fallback
+                inputs = [
+                    { id: 'genericInput', label: 'Generic Input Data', type: 'textarea', placeholder: 'Enter your data here...' }
+                ];
+            }
+
+            inputs.forEach(input => {
+                const container = document.createElement('div');
+                container.className = 'mb-4';
+                container.innerHTML = `
+                    <label for="${input.id}" class="block text-sm font-medium text-gray-700 mb-1">${input.label}</label>
+                    ${input.type === 'textarea'
+                        ? `<textarea id="${input.id}" rows="3" class="focus:ring-blue-500 focus:border-blue-500 rounded-lg p-2 resize-none" placeholder="${input.placeholder}">${input.placeholder.includes('nodeA,nodeB,weight') ? '0,1,3\n0,2,1\n2,1,2\n1,3,1\n2,3,5\n3,4,3' : ''}</textarea>`
+                        : `<input type="${input.type}" id="${input.id}" class="focus:ring-blue-500 focus:border-blue-500" placeholder="${input.placeholder}">`
+                    }
+                `;
+                DYNAMIC_INPUTS.appendChild(container);
+                state.inputFields.push(input.id);
+            });
+        }
+
+        // --- Data Parsing Helpers ---
+
+        function parseInput() {
+            const values = {};
+            state.inputFields.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    let value = element.value.trim();
+
+                    if (element.type === 'number') {
+                        values[id] = parseFloat(value);
+                    } else if (id.endsWith('Array') || id === 'weights' || id === 'values' || id === 'startTimes' || id === 'finishTimes' || id === 'deadlines' || id === 'profits') {
+                        // Parse comma-separated numbers into an array of floats/numbers
+                        values[id] = value.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
+                    } else if (id === 'jobIds') {
+                        // Parse comma-separated strings
+                        values[id] = value.split(',').map(s => s.trim()).filter(s => s.length > 0);
+                    } else if (id === 'edges') {
+                        // Parse multiline edge list for graph
+                        values[id] = value.split('\n')
+                            .map(line => line.split(',').map(s => s.trim()))
+                            .filter(parts => parts.length === 3 && parts.every(p => !isNaN(parseFloat(p))));
+                    } else {
+                        values[id] = value;
+                    }
+                }
+            });
+            return values;
+        }
+
+        // --- Run Algorithm Function ---
+
+        function runAlgorithm() {
+            const algoKey = state.selectedAlgorithm;
+            const algo = ALL_ALGORITHMS[state.selectedCategory][algoKey];
+            const inputs = parseInput();
+            let result = '';
+
+            try {
+                result = algo.impl(inputs);
+            } catch (error) {
+                result = `ERROR: An unexpected error occurred during execution.\nDetails: ${error.message}`;
+                console.error(error);
+            }
+
+            state.output = result;
+            render();
+        }
+
+        // --- Implementation of Unimplemented/WIP Algorithms ---
+
+        function notImplemented(inputs) {
+            const algo = ALL_ALGORITHMS[state.selectedCategory][state.selectedAlgorithm];
+            return `Algorithm '${algo.name}' is not yet implemented. Please select another algorithm or check back later!`;
+        }
+
+        // ** 1. Sorting Algorithms (Existing) **
+
+        function bubbleSort(inputs) {
+            let arr = [...inputs.dataArray];
+            const n = arr.length;
+            let output = `Initial Array: [${arr.join(', ')}]\n\n`;
+
+            for (let i = 0; i < n - 1; i++) {
+                let swapped = false;
+                for (let j = 0; j < n - 1 - i; j++) {
+                    if (arr[j] > arr[j + 1]) {
+                        [arr[j], arr[j + 1]] = [arr[j + 1], arr[j]];
+                        swapped = true;
+                    }
+                }
+                output += `Pass ${i + 1}: [${arr.join(', ')}]\n`;
+                if (!swapped) break;
+            }
+            output += `\nFinal Sorted Array: [${arr.join(', ')}]`;
+            return output;
+        }
+
+        function mergeSort(inputs) {
+            let arr = [...inputs.dataArray];
+            let steps = [];
+
+            function merge(left, right) {
+                let arr = [];
+                while (left.length && right.length) {
+                    if (left[0] < right[0]) {
+                        arr.push(left.shift());
+                    } else {
+                        arr.push(right.shift());
+                    }
+                }
+                return [...arr, ...left, ...right];
+            }
+
+            function sort(array) {
+                if (array.length <= 1) return array;
+                const mid = Math.floor(array.length / 2);
+                const left = array.slice(0, mid);
+                const right = array.slice(mid);
+                const result = merge(sort(left), sort(right));
+                steps.push(`Merging: [${left.join(', ')}] and [${right.join(', ')}] -> [${result.join(', ')}]`);
+                return result;
+            }
+
+            const sortedArray = sort(arr);
+            let output = `Initial Array: [${arr.join(', ')}]\n\nMerge Steps:\n`;
+            output += steps.join('\n');
+            output += `\n\nFinal Sorted Array: [${sortedArray.join(', ')}]`;
+            return output;
+        }
+
+        function quicksort(inputs) {
+            let arr = [...inputs.dataArray];
+            let steps = [];
+
+            function sort(array, start, end) {
+                if (start >= end) return;
+
+                const pivotIndex = partition(array, start, end);
+                steps.push(`Partitioned around pivot ${array[pivotIndex]} (Index ${pivotIndex}): [${array.join(', ')}]`);
+                sort(array, start, pivotIndex - 1);
+                sort(array, pivotIndex + 1, end);
+            }
+
+            function partition(array, start, end) {
+                const pivot = array[end];
+                let i = start - 1;
+
+                for (let j = start; j < end; j++) {
+                    if (array[j] < pivot) {
+                        i++;
+                        [array[i], array[j]] = [array[j], array[i]];
+                    }
+                }
+                [array[i + 1], array[end]] = [array[end], array[i + 1]];
+                return i + 1;
+            }
+
+            sort(arr, 0, arr.length - 1);
+
+            let output = `Initial Array: [${inputs.dataArray.join(', ')}]\n\nQuick Sort Steps:\n`;
+            output += steps.join('\n');
+            output += `\n\nFinal Sorted Array: [${arr.join(', ')}]`;
+            return output;
+        }
+        
+        function insertionSort(inputs) {
+            let arr = [...inputs.dataArray];
+            const n = arr.length;
+            let output = `Initial Array: [${arr.join(', ')}]\n\n`;
+
+            for (let i = 1; i < n; i++) {
+                let current = arr[i];
+                let j = i - 1;
+                while (j >= 0 && arr[j] > current) {
+                    arr[j + 1] = arr[j];
+                    j--;
+                }
+                arr[j + 1] = current;
+                output += `After inserting ${current}: [${arr.join(', ')}]\n`;
+            }
+            output += `\nFinal Sorted Array: [${arr.join(', ')}]`;
+            return output;
+        }
+
+        function selectionSort(inputs) {
+            let arr = [...inputs.dataArray];
+            const n = arr.length;
+            let output = `Initial Array: [${arr.join(', ')}]\n\n`;
+
+            for (let i = 0; i < n - 1; i++) {
+                let minIdx = i;
+                for (let j = i + 1; j < n; j++) {
+                    if (arr[j] < arr[minIdx]) {
+                        minIdx = j;
+                    }
+                }
+                [arr[i], arr[minIdx]] = [arr[minIdx], arr[i]];
+                output += `Pass ${i + 1} (Swapped ${arr[i]} with ${arr[minIdx]}): [${arr.join(', ')}]\n`;
+            }
+            output += `\nFinal Sorted Array: [${arr.join(', ')}]`;
+            return output;
+        }
+
+        function countingSort(inputs) {
+            let arr = [...inputs.dataArray];
+            if (arr.some(n => n < 0 || !Number.isInteger(n))) {
+                return "Error: Counting Sort requires an array of non-negative integers.";
+            }
+
+            let output = `Initial Array: [${arr.join(', ')}]\n\n`;
+            const max = Math.max(...arr);
+            const count = new Array(max + 1).fill(0);
+            const sorted = new Array(arr.length);
+
+            // 1. Count frequencies
+            for (let i = 0; i < arr.length; i++) {
+                count[arr[i]]++;
+            }
+            output += `Count Array (Frequencies):\n[${count.join(', ')}]\n\n`;
+
+            // 2. Cumulative count
+            for (let i = 1; i <= max; i++) {
+                count[i] += count[i - 1];
+            }
+            output += `Cumulative Count Array (Positions):\n[${count.join(', ')}]\n\n`;
+
+            // 3. Build sorted array
+            for (let i = arr.length - 1; i >= 0; i--) {
+                sorted[count[arr[i]] - 1] = arr[i];
+                count[arr[i]]--;
+            }
+            output += `\nFinal Sorted Array: [${sorted.join(', ')}]`;
+            return output;
+        }
+
+        function heapSort(inputs) {
+            let arr = [...inputs.dataArray];
+            let n = arr.length;
+            let output = `Initial Array: [${arr.join(', ')}]\n\n`;
+
+            // Heapify subtree rooted at index i
+            function heapify(arr, n, i) {
+                let largest = i; // Initialize largest as root
+                let left = 2 * i + 1;
+                let right = 2 * i + 2;
+
+                // If left child is larger than root
+                if (left < n && arr[left] > arr[largest]) {
+                    largest = left;
+                }
+
+                // If right child is larger than largest so far
+                if (right < n && arr[right] > arr[largest]) {
+                    largest = right;
+                }
+
+                // If largest is not root
+                if (largest !== i) {
+                    [arr[i], arr[largest]] = [arr[largest], arr[i]]; // Swap
+                    // Recursively heapify the affected sub-tree
+                    heapify(arr, n, largest);
+                }
+            }
+
+            // Build max heap
+            output += "Building Max Heap:\n";
+            for (let i = Math.floor(n / 2) - 1; i >= 0; i--) {
+                heapify(arr, n, i);
+                output += `  Heapify at ${i}: [${arr.join(', ')}]\n`;
+            }
+            output += `Max Heap Built: [${arr.join(', ')}]\n\n`;
+
+            // One by one extract an element from heap
+            output += "Extracting elements (Sorting):\n";
+            for (let i = n - 1; i > 0; i--) {
+                // Move current root to end
+                [arr[0], arr[i]] = [arr[i], arr[0]];
+                output += `  Swap root ${arr[i]} with end: [${arr.join(', ')}]\n`;
+
+                // call max heapify on the reduced heap
+                heapify(arr, i, 0);
+                output += `  Heapify root (size ${i}): [${arr.join(', ')}]\n`;
+            }
+
+            output += `\nFinal Sorted Array: [${arr.join(', ')}]`;
+            return output;
+        }
+
+        function shellSort(inputs) {
+            let arr = [...inputs.dataArray];
+            let n = arr.length;
+            let output = `Initial Array: [${arr.join(', ')}]\n\n`;
+
+            // Start with a large gap, then reduce the gap
+            for (let gap = Math.floor(n / 2); gap > 0; gap = Math.floor(gap / 2)) {
+                output += `Sorting with gap size ${gap}:\n`;
+                // Do a gapped insertion sort for this gap size
+                for (let i = gap; i < n; i++) {
+                    let temp = arr[i];
+                    let j;
+                    for (j = i; j >= gap && arr[j - gap] > temp; j -= gap) {
+                        arr[j] = arr[j - gap];
+                    }
+                    arr[j] = temp;
+                }
+                output += `  Array after gap ${gap}: [${arr.join(', ')}]\n`;
+            }
+            output += `\nFinal Sorted Array: [${arr.join(', ')}]`;
+            return output;
+        }
+
+        function radixSort(inputs) {
+            let arr = [...inputs.dataArray];
+            if (arr.some(n => n < 0 || !Number.isInteger(n))) {
+                return "Error: Radix Sort requires an array of non-negative integers.";
+            }
+            let output = `Initial Array: [${arr.join(', ')}]\n\n`;
+
+            // Find the maximum number to know number of digits
+            const max = Math.max(...arr);
+
+            // Helper function: Counting Sort by digit
+            function countingSortByDigit(arr, exp) {
+                let n = arr.length;
+                let outputArr = new Array(n);
+                let count = new Array(10).fill(0);
+
+                // Store count of occurrences in count[]
+                for (let i = 0; i < n; i++) {
+                    count[Math.floor(arr[i] / exp) % 10]++;
+                }
+
+                // Change count[i] so that count[i] now contains actual
+                // position of this digit in outputArr[]
+                for (let i = 1; i < 10; i++) {
+                    count[i] += count[i - 1];
+                }
+
+                // Build the output array
+                for (let i = n - 1; i >= 0; i--) {
+                    outputArr[count[Math.floor(arr[i] / exp) % 10] - 1] = arr[i];
+                    count[arr[i]]--;
+                }
+
+                // Copy the output array to arr[], so that arr[] now
+                // contains sorted numbers according to current digit
+                for (let i = 0; i < n; i++) {
+                    arr[i] = outputArr[i];
+                }
+            }
+
+            // Do counting sort for every digit. Note that instead
+            // of passing digit number, exp is passed. exp is 10^i
+            // where i is current digit number
+            for (let exp = 1; Math.floor(max / exp) > 0; exp *= 10) {
+                output += `Sorting by digit (exp = ${exp}):\n`;
+                countingSortByDigit(arr, exp);
+                output += `  Array: [${arr.join(', ')}]\n`;
+            }
+
+            output += `\nFinal Sorted Array: [${arr.join(', ')}]`;
+            return output;
+        }
+
+
+        // ** 1. Sorting Algorithms (New Implementations) **
+
+        /**
+         * Comb Sort: An improvement over Bubble Sort that eliminates "turtles"
+         * (small values near the end of the list) by using a shrinking gap.
+         */
+        function combSort(inputs) {
+            let arr = [...inputs.dataArray];
+            const n = arr.length;
+            let output = `Initial Array: [${arr.join(', ')}]\n\n`;
+
+            let gap = n;
+            const shrink = 1.3; // Standard shrinking factor
+            let sorted = false;
+            let step = 1;
+
+            while (!sorted) {
+                gap = Math.floor(gap / shrink);
+                if (gap <= 1) {
+                    gap = 1;
+                    sorted = true; // Once gap is 1, treat it like Bubble Sort, checking if sorted
+                }
+
+                output += `Pass ${step++}: Gap = ${gap}\n`;
+                let swapped = false;
+
+                for (let i = 0; i < n - gap; i++) {
+                    if (arr[i] > arr[i + gap]) {
+                        [arr[i], arr[i + gap]] = [arr[i + gap], arr[i]];
+                        swapped = true;
+                    }
+                }
+
+                output += `  Array after pass: [${arr.join(', ')}]\n`;
+
+                if (gap === 1 && !swapped) {
+                    sorted = true; // Fully sorted when gap is 1 and no swaps occur
+                }
+            }
+
+            output += `\nFinal Sorted Array: [${arr.join(', ')}]`;
+            return output;
+        }
+
+        /**
+         * Tree Sort: Uses a Binary Search Tree (BST) to sort elements.
+         * The result is generated by an In-order Traversal of the BST.
+         */
+        function treeSort(inputs) {
+            let arr = [...inputs.dataArray];
+            if (arr.length === 0) return "Array is empty.";
+            let output = `Initial Array: [${arr.join(', ')}]\n\n`;
+            
+            // BST Node Class
+            class Node {
+                constructor(value) {
+                    this.value = value;
+                    this.left = null;
+                    this.right = null;
+                }
+            }
+
+            // BST Operations
+            class BST {
+                constructor() {
+                    this.root = null;
+                }
+
+                insert(value) {
+                    const newNode = new Node(value);
+                    if (!this.root) {
+                        this.root = newNode;
+                        return;
+                    }
+                    let current = this.root;
+                    while (true) {
+                        if (value < current.value) {
+                            if (!current.left) {
+                                current.left = newNode;
+                                return;
+                            }
+                            current = current.left;
+                        } else {
+                            if (!current.right) {
+                                current.right = newNode;
+                                return;
+                            }
+                            current = current.right;
+                        }
+                    }
+                }
+
+                inOrderTraversal(node, result) {
+                    if (node) {
+                        this.inOrderTraversal(node.left, result);
+                        result.push(node.value);
+                        this.inOrderTraversal(node.right, result);
+                    }
+                }
+            }
+
+            const tree = new BST();
+            output += "BST Insertion Steps:\n";
+            for (const item of arr) {
+                tree.insert(item);
+                output += `  Inserting ${item}\n`;
+            }
+            output += "\n";
+
+            const sortedArray = [];
+            tree.inOrderTraversal(tree.root, sortedArray);
+
+            output += "In-Order Traversal (Sorted Order):\n";
+            output += `[${sortedArray.join(', ')}]`;
+            output += `\n\nFinal Sorted Array: [${sortedArray.join(', ')}]`;
+            return output;
+        }
+
+        /**
+         * Tim Sort: A hybrid stable sort, combining Insertion Sort for small "runs"
+         * and Merge Sort for merging those runs. (Simplified educational version).
+         * 
+         */
+        function timSort(inputs) {
+            let arr = [...inputs.dataArray];
+            const n = arr.length;
+            if (n === 0) return "Array is empty.";
+            let output = `Initial Array: [${arr.join(', ')}]\n\n`;
+
+            const MIN_RUN = 32;
+
+            // 1. Insertion sort for small runs (Helper function)
+            function insertionSortRun(arr, left, right) {
+                for (let i = left + 1; i <= right; i++) {
+                    let temp = arr[i];
+                    let j = i - 1;
+                    while (j >= left && arr[j] > temp) {
+                        arr[j + 1] = arr[j];
+                        j--;
+                    }
+                    arr[j + 1] = temp;
+                }
+            }
+
+            // 2. Merge function
+            function mergeRuns(arr, l, m, r) {
+                const len1 = m - l + 1;
+                const len2 = r - m;
+                const left = new Array(len1);
+                const right = new Array(len2);
+
+                for (let i = 0; i < len1; i++) left[i] = arr[l + i];
+                for (let i = 0; i < len2; i++) right[i] = arr[m + 1 + i];
+
+                let i = 0, j = 0, k = l;
+                while (i < len1 && j < len2) {
+                    if (left[i] <= right[j]) { // Stable comparison
+                        arr[k++] = left[i++];
+                    } else {
+                        arr[k++] = right[j++];
+                    }
+                }
+                while (i < len1) arr[k++] = left[i++];
+                while (j < len2) arr[k++] = right[j++];
+            }
+
+            // --- Tim Sort main logic ---
+
+            output += `Phase 1: Creating Runs (Size ${MIN_RUN}):\n`;
+            for (let i = 0; i < n; i += MIN_RUN) {
+                const right = Math.min(i + MIN_RUN - 1, n - 1);
+                insertionSortRun(arr, i, right);
+                output += `  Run [${i}-${right}] sorted: [${arr.slice(i, right + 1).join(', ')}] (Current Array: [${arr.join(', ')}])\n`;
+            }
+
+            output += `\nPhase 2: Merging Runs:\n`;
+            for (let size = MIN_RUN; size < n; size = 2 * size) {
+                output += `  Merging runs of size ${size}:\n`;
+                for (let left = 0; left < n; left += 2 * size) {
+                    const mid = left + size - 1;
+                    const right = Math.min(left + 2 * size - 1, n - 1);
+
+                    if (mid < right) {
+                        mergeRuns(arr, left, mid, right);
+                        output += `    Merged [${left}-${mid}] and [${mid+1}-${right}]: [${arr.slice(left, right + 1).join(', ')}] (Current Array: [${arr.join(', ')}])\n`;
+                    }
+                }
+            }
+
+            output += `\nFinal Sorted Array: [${arr.join(', ')}]`;
+            return output;
+        }
+
+        /**
+         * Tournament Sort (Heap Selection): An in-place selection sort based on
+         * repeatedly selecting the minimum element using a Heap (Max Heap in this case for
+         * similarity to Heap Sort, but emphasizing the tournament 'winner' selection).
+         */
+        function tournamentSort(inputs) {
+            let arr = [...inputs.dataArray];
+            let n = arr.length;
+            let output = `Initial Array: [${arr.join(', ')}]\n\n`;
+
+            // Note: This implementation uses a Max-Heap structure for in-place selection,
+            // which is the common way to implement a tournament/winner tree in a single array.
+
+            // Heapify subtree rooted at index i
+            function maxHeapify(arr, size, i) {
+                let largest = i;
+                let left = 2 * i + 1;
+                let right = 2 * i + 2;
+
+                if (left < size && arr[left] > arr[largest]) {
+                    largest = left;
+                }
+                if (right < size && arr[right] > arr[largest]) {
+                    largest = right;
+                }
+
+                if (largest !== i) {
+                    [arr[i], arr[largest]] = [arr[largest], arr[i]];
+                    maxHeapify(arr, size, largest);
+                }
+            }
+
+            // Build initial Max Heap
+            output += "Phase 1: Building Max Heap (Tournament Tree):\n";
+            for (let i = Math.floor(n / 2) - 1; i >= 0; i--) {
+                maxHeapify(arr, n, i);
+            }
+            output += `  Initial Heap: [${arr.join(', ')}]\n\n`;
+
+            // Extraction (Tournament/Selection phase)
+            output += "Phase 2: Repeatedly Extracting Winner (Sorting):\n";
+            for (let i = n - 1; i > 0; i--) {
+                // The root (arr[0]) is the winner of the tournament.
+                // Swap the winner to the end of the current array size.
+                [arr[0], arr[i]] = [arr[i], arr[0]];
+                output += `  Round ${n - i}: Winner ${arr[i]} swapped to position ${i}. Reduced size to ${i}.\n`;
+
+                // Re-run the tournament (Max-Heapify the remaining size)
+                maxHeapify(arr, i, 0);
+            }
+
+            output += `\nFinal Sorted Array: [${arr.join(', ')}]`;
+            return output;
+        }
+
+
+        // ** 2. Searching Algorithms (Existing) **
+
+        function linearSearch(inputs) {
+            const arr = inputs.dataArray;
+            const target = inputs.targetValue;
+            let index = -1;
+
+            for (let i = 0; i < arr.length; i++) {
+                if (arr[i] === target) {
+                    index = i;
+                    break;
+                }
+            }
+
+            if (index !== -1) {
+                return `Linear Search successful!\nTarget value ${target} found at index: ${index}.`;
+            } else {
+                return `Linear Search failed.\nTarget value ${target} was not found in the array.`;
+            }
+        }
+
+        function binarySearch(inputs) {
+            const arr = inputs.dataArray;
+            const target = inputs.targetValue;
+
+            if (arr.length === 0) return "Array is empty. Cannot search.";
+            if (arr[0] > arr[arr.length - 1]) {
+                return `Error: Binary Search requires a sorted array. The input array is not sorted.`;
+            }
+
+            let low = 0;
+            let high = arr.length - 1;
+            let step = 1;
+            let output = `Searching for ${target} in [${arr.join(', ')}]\n\n`;
+
+            while (low <= high) {
+                const mid = Math.floor((low + high) / 2);
+                output += `Step ${step++}: Check range [${low}, ${high}]. Middle index: ${mid} (Value: ${arr[mid]})\n`;
+
+                if (arr[mid] === target) {
+                    output += `\nBinary Search successful!\nTarget found at index: ${mid}.`;
+                    return output;
+                } else if (arr[mid] < target) {
+                    low = mid + 1;
+                } else {
+                    high = mid - 1;
+                }
+            }
+
+            output += `\nBinary Search failed.\nTarget value ${target} was not found.`;
+            return output;
+        }
+
+        function ternarySearch(inputs) {
+            let arr = inputs.dataArray;
+            let target = inputs.targetValue;
+            if (arr.length === 0) return "Array is empty. Cannot search.";
+            if (arr[0] > arr[arr.length - 1]) {
+                return `Error: Ternary Search requires a sorted array. The input array is not sorted.`;
+            }
+
+            let left = 0;
+            let right = arr.length - 1;
+            let step = 1;
+            let output = `Searching for ${target} in [${arr.join(', ')}]\n\n`;
+
+            while (right >= left) {
+                let mid1 = left + Math.floor((right - left) / 3);
+                let mid2 = right - Math.floor((right - left) / 3);
+                output += `Step ${step++}: Range [${left}, ${right}]. Mid1: ${mid1} (Val: ${arr[mid1]}), Mid2: ${mid2} (Val: ${arr[mid2]})\n`;
+
+                if (arr[mid1] === target) {
+                    return output + `\nTernary Search successful!\nTarget found at index: ${mid1}.`;
+                }
+                if (arr[mid2] === target) {
+                    return output + `\nTernary Search successful!\nTarget found at index: ${mid2}.`;
+                }
+
+                if (target < arr[mid1]) {
+                    right = mid1 - 1; // Search left part
+                } else if (target > arr[mid2]) {
+                    left = mid2 + 1; // Search right part
+                } else {
+                    left = mid1 + 1; // Search middle part
+                    right = mid2 - 1;
+                }
+            }
+            return output + `\nTernary Search failed.\nTarget value ${target} was not found.`;
+        }
+
+        function jumpSearch(inputs) {
+            let arr = inputs.dataArray;
+            let target = inputs.targetValue;
+            const n = arr.length;
+            if (n === 0) return "Array is empty. Cannot search.";
+            if (arr[0] > arr[arr.length - 1]) {
+                return `Error: Jump Search requires a sorted array. The input array is not sorted.`;
+            }
+
+            let step = Math.floor(Math.sqrt(n));
+            let prev = 0;
+            let output = `Searching for ${target} in [${arr.join(', ')}]\nArray size: ${n}, Jump step: ${step}\n\n`;
+
+            while (arr[Math.min(step, n) - 1] < target) {
+                output += `Jumping from index ${prev} to ${step}. Value ${arr[Math.min(step, n) - 1]} is < ${target}.\n`;
+                prev = step;
+                step += Math.floor(Math.sqrt(n));
+                if (prev >= n) {
+                    return output + `\nJump Search failed.\nTarget value ${target} was not found.`;
+                }
+            }
+
+            output += `Target is between indices ${prev} and ${step}. Performing linear search...\n`;
+
+            while (arr[prev] < target) {
+                output += `  Checking index ${prev} (Value: ${arr[prev]})...\n`;
+                prev++;
+                if (prev === Math.min(step, n)) {
+                    return output + `\nJump Search failed.\nTarget value ${target} was not found.`;
+                }
+            }
+
+            if (arr[prev] === target) {
+                return output + `\nJump Search successful!\nTarget found at index: ${prev}.`;
+            }
+
+            return output + `\nJump Search failed.\nTarget value ${target} was not found.`;
+        }
+
+        function interpolationSearch(inputs) {
+            let arr = inputs.dataArray;
+            let target = inputs.targetValue;
+            let n = arr.length;
+            if (n === 0) return "Array is empty. Cannot search.";
+            if (arr[0] > arr[arr.length - 1]) {
+                return `Error: Interpolation Search requires a sorted array. The input array is not sorted.`;
+            }
+
+            let low = 0;
+            let high = n - 1;
+            let output = `Searching for ${target} in [${arr.join(', ')}]\n\n`;
+            let step = 1;
+
+            while (low <= high && target >= arr[low] && target <= arr[high]) {
+                if (low === high) {
+                    if (arr[low] === target) return output + `\nInterpolation Search successful!\nTarget found at index: ${low}.`;
+                    return output + `\nInterpolation Search failed.\nTarget value ${target} was not found.`;
+                }
+
+                // Probing the position with formula
+                let pos = low + Math.floor(((high - low) / (arr[high] - arr[low])) * (target - arr[low]));
+                
+                if (isNaN(pos) || pos < low || pos > high) {
+                     output += `Step ${step++}: Calculated position is out of bounds. Switching to linear search.\n`;
+                     // Fallback to linear search if out of bounds (e.g., divide by zero)
+                     for(let i = low; i <= high; i++) {
+                         if(arr[i] === target) return output + `  Found at index ${i}.`;
+                     }
+                     return output + `\nInterpolation Search failed.\nTarget value ${target} was not found.`;
+                }
+
+                output += `Step ${step++}: Range [${low}, ${high}]. Probing position: ${pos} (Value: ${arr[pos]})\n`;
+
+                if (arr[pos] === target) {
+                    return output + `\nInterpolation Search successful!\nTarget found at index: ${pos}.`;
+                }
+
+                if (arr[pos] < target) {
+                    low = pos + 1;
+                } else {
+                    high = pos - 1;
+                }
+            }
+            return output + `\nInterpolation Search failed.\nTarget value ${target} was not found.`;
+        }
+        
+        function exponentialSearch(inputs) {
+            let arr = inputs.dataArray;
+            let target = inputs.targetValue;
+            let n = arr.length;
+            if (n === 0) return "Array is empty. Cannot search.";
+            if (arr[0] > arr[arr.length - 1]) {
+                return `Error: Exponential Search requires a sorted array. The input array is not sorted.`;
+            }
+            
+            let output = `Searching for ${target} in [${arr.join(', ')}]\n\n`;
+            
+            if (arr[0] === target) {
+                return output + `Exponential Search successful!\nTarget found at index: 0.`;
+            }
+
+            // Find range for binary search
+            let i = 1;
+            while (i < n && arr[i] <= target) {
+                output += `Checking bound at index ${i} (Value: ${arr[i]})\n`;
+                i = i * 2;
+            }
+
+            output += `Target is between index ${i / 2} and ${Math.min(i, n - 1)}. Performing binary search...\n`;
+
+            // Binary search in the found range
+            let low = i / 2;
+            let high = Math.min(i, n - 1);
+            let step = 1;
+            
+            while (low <= high) {
+                const mid = Math.floor((low + high) / 2);
+                output += `  Step ${step++} (Binary): Check range [${low}, ${high}]. Middle index: ${mid} (Value: ${arr[mid]})\n`;
+
+                if (arr[mid] === target) {
+                    output += `\nExponential Search successful!\nTarget found at index: ${mid}.`;
+                    return output;
+                } else if (arr[mid] < target) {
+                    low = mid + 1;
+                } else {
+                    high = mid - 1;
+                }
+            }
+
+            return output + `\nExponential Search failed.\nTarget value ${target} was not found.`;
+        }
+
+
+        // ** 3. String Searching Algorithms (Existing & New) **
+
+        function naivePatternSearch(inputs) {
+            const text = inputs.mainText;
+            const pattern = inputs.pattern;
+            const N = text.length;
+            const M = pattern.length;
+            let foundIndices = [];
+
+            for (let i = 0; i <= N - M; i++) {
+                let j;
+                for (j = 0; j < M; j++) {
+                    if (text[i + j] !== pattern[j]) {
+                        break;
+                    }
+                }
+                if (j === M) {
+                    foundIndices.push(i);
+                }
+            }
+
+            if (foundIndices.length > 0) {
+                return `Naive Pattern Search successful!\nPattern found at starting indices: ${foundIndices.join(', ')}\nText: ${text}\nPattern: ${pattern}`;
+            } else {
+                return `Naive Pattern Search failed.\nPattern '${pattern}' not found in the text.`;
+            }
+        }
+
+        function kmpSearch(inputs) {
+            const text = inputs.mainText;
+            const pattern = inputs.pattern;
+            const N = text.length;
+            const M = pattern.length;
+            if (M === 0) return 'Pattern is empty.';
+            if (N === 0) return 'Text is empty.';
+
+            let output = `Text: ${text}\nPattern: ${pattern}\n\n`;
+
+            // Function to compute Longest Proper Prefix suffix (LPS) array
+            function computeLPSArray(pat) {
+                const lps = new Array(M).fill(0);
+                let len = 0;
+                let i = 1;
+
+                output += 'LPS Array Construction:\n';
+                while (i < M) {
+                    if (pat[i] === pat[len]) {
+                        len++;
+                        lps[i] = len;
+                        i++;
+                    } else {
+                        if (len !== 0) {
+                            len = lps[len - 1];
+                        } else {
+                            lps[i] = 0;
+                            i++;
+                        }
+                    }
+                    output += `  Index ${i - 1}, Char: ${pat[i - 1]}, Current LPS value: ${lps[i - 1]}\n`;
+                }
+                output += `Final LPS Array: [${lps.join(', ')}]\n\n`;
+                return lps;
+            }
+
+            const lps = computeLPSArray(pattern);
+
+            let i = 0; // index for text
+            let j = 0; // index for pattern
+            let foundIndices = [];
+
+            output += 'KMP Searching:\n';
+
+            while (i < N) {
+                if (pattern[j] === text[i]) {
+                    i++;
+                    j++;
+                }
+
+                if (j === M) {
+                    foundIndices.push(i - j);
+                    output += `  Match found at index ${i - j}. Shifting pattern using LPS[${j - 1}] = ${lps[j - 1]}\n`;
+                    j = lps[j - 1];
+                } else if (i < N && pattern[j] !== text[i]) {
+                    output += `  Mismatch at T[${i}] and P[${j}].\n`;
+                    if (j !== 0) {
+                        output += `  Shifting pattern using LPS[${j - 1}] = ${lps[j - 1]}\n`;
+                        j = lps[j - 1];
+                    } else {
+                        i++;
+                    }
+                }
+            }
+
+            if (foundIndices.length > 0) {
+                return output + `\nKMP Search successful!\nPattern found at starting indices: ${foundIndices.join(', ')}.`;
+            } else {
+                return output + `\nKMP Search failed.\nPattern '${pattern}' not found in the text.`;
+            }
+        }
+
+        function rabinKarp(inputs) {
+            const text = inputs.mainText;
+            const pattern = inputs.pattern;
+            const d = 256; // number of characters in the alphabet
+            const q = 101; // a prime number
+            const M = pattern.length;
+            const N = text.length;
+            let p = 0; // hash value for pattern
+            let t = 0; // hash value for txt
+            let h = 1;
+            let foundIndices = [];
+            let output = `Text: ${text}\nPattern: ${pattern}\nPrime (q): ${q}\n\n`;
+
+            if (M > N) return output + "Error: Pattern is longer than text.";
+
+            // h = Math.pow(d, M-1) % q
+            for (let i = 0; i < M - 1; i++) {
+                h = (h * d) % q;
+            }
+
+            // Calculate initial hash values
+            for (let i = 0; i < M; i++) {
+                p = (d * p + pattern.charCodeAt(i)) % q;
+                t = (d * t + text.charCodeAt(i)) % q;
+            }
+            
+            output += `Initial Pattern Hash: ${p}\nInitial Text Window Hash: ${t}\n\n`;
+
+            // Slide the pattern over text
+            for (let i = 0; i <= N - M; i++) {
+                output += `Window [${i}..${i+M-1}]: Text Hash = ${t}. `;
+                // Check hashes
+                if (p === t) {
+                    // Check for spurious hit
+                    let j;
+                    for (j = 0; j < M; j++) {
+                        if (text[i + j] !== pattern[j]) {
+                            break;
+                        }
+                    }
+                    if (j === M) {
+                        output += "-> HASH MATCH & CHARACTER MATCH. Found at index " + i + "\n";
+                        foundIndices.push(i);
+                    } else {
+                        output += "-> HASH MATCH but Spurious Hit (characters mismatch).\n";
+                    }
+                } else {
+                     output += "-> No Hash Match.\n";
+                }
+
+                // Calculate hash value for next window
+                if (i < N - M) {
+                    t = (d * (t - text.charCodeAt(i) * h) + text.charCodeAt(i + M)) % q;
+                    if (t < 0) {
+                        t = (t + q); // ensure positive
+                    }
+                }
+            }
+            
+            if (foundIndices.length > 0) {
+                return output + `\nRabin-Karp successful!\nPattern found at starting indices: ${foundIndices.join(', ')}.`;
+            } else {
+                return output + `\nRabin-Karp failed.\nPattern '${pattern}' not found in the text.`;
+            }
+        }
+
+        /**
+         * Boyer-Moore Algorithm (Bad Character Heuristic): Uses pattern matching
+         * from right to left to determine the largest possible jump.
+         * 
+         */
+        function boyerMoore(inputs) {
+            const text = inputs.mainText.toUpperCase();
+            const pattern = inputs.pattern.toUpperCase();
+            const N = text.length;
+            const M = pattern.length;
+            let foundIndices = [];
+            let output = `Text: ${text}\nPattern: ${pattern}\n\n`;
+
+            if (M === 0) return 'Pattern is empty.';
+            if (N === 0) return 'Text is empty.';
+            if (M > N) return 'Pattern is longer than text.';
+            
+            const NO_OF_CHARS = 256;
+
+            // 1. Preprocessing: Bad Character Heuristic Table
+            const badChar = new Array(NO_OF_CHARS).fill(-1);
+            for (let i = 0; i < M; i++) {
+                badChar[pattern.charCodeAt(i)] = i;
+            }
+
+            output += "Bad Character Heuristic Table (Last occurrence in Pattern):\n";
+            output += `(Example: ${pattern[M-1]}: ${badChar[pattern.charCodeAt(M-1)]}, ${pattern[M-2]}: ${badChar[pattern.charCodeAt(M-2)]}, etc.)\n\n`;
+
+            // 2. Searching
+            let s = 0; // s is the shift of the pattern with respect to text
+            let step = 1;
+
+            while (s <= (N - M)) {
+                let j = M - 1;
+
+                // Keep reducing index j while characters of pattern and text match
+                while (j >= 0 && pattern[j] === text[s + j]) {
+                    j--;
+                }
+
+                // If the pattern is found (j < 0)
+                if (j < 0) {
+                    foundIndices.push(s);
+                    output += `Step ${step++}: Match found at index ${s}! \n`;
+                    // Shift the pattern so that the next character in text aligns
+                    // with its last occurrence in pattern (using M)
+                    s += (s + M < N) ? M - badChar[text.charCodeAt(s + M)] : 1;
+                } else {
+                    // Character mismatch at T[s+j] and P[j]
+                    // The mismatching character in text is text[s + j]
+                    const badCharValue = text.charCodeAt(s + j);
+                    const lastOccurence = badChar[badCharValue];
+                    
+                    // Shift is max(1, j - badChar[text[s + j]])
+                    // j - lastOccurence is the required jump if the character exists in pattern
+                    // 1 is the minimum jump
+                    const shift = Math.max(1, j - lastOccurence);
+                    output += `Step ${step++}: Mismatch at T[${s+j}]='${text[s+j]}' and P[${j}]='${pattern[j]}'. Last occurrence in P: ${lastOccurence}. Shifting by ${shift}.\n`;
+                    s += shift;
+                }
+            }
+
+            if (foundIndices.length > 0) {
+                return output + `\nBoyer-Moore Search successful!\nPattern found at starting indices: ${foundIndices.join(', ')}.`;
+            } else {
+                return output + `\nBoyer-Moore Search failed.\nPattern '${pattern}' not found in the text.`;
+            }
+        }
+
+
+        // ** 4. Greedy Algorithms (Existing & New) **
+
+        function fractionalKnapsack(inputs) {
+            const W = inputs.weights;
+            const V = inputs.values;
+            const C = inputs.capacity;
+
+            if (W.length !== V.length) return "Error: Weights and Values arrays must be the same length.";
+            if (C <= 0 || W.length === 0) return "Invalid input: Capacity must be positive and items must exist.";
+
+            const items = W.map((weight, i) => ({
+                id: i + 1,
+                weight: weight,
+                value: V[i],
+                ratio: V[i] / weight
+            }));
+
+            // Sort by value/weight ratio in descending order (Greedy choice)
+            items.sort((a, b) => b.ratio - a.ratio);
+
+            let totalValue = 0;
+            let currentWeight = 0;
+            let output = 'Item\tWeight\tValue\tRatio\tQty Taken\n';
+            output += '-'.repeat(45) + '\n';
+
+            for (const item of items) {
+                if (currentWeight + item.weight <= C) {
+                    // Take the whole item
+                    currentWeight += item.weight;
+                    totalValue += item.value;
+                    output += `${item.id}\t${item.weight}\t${item.value}\t${item.ratio.toFixed(2)}\t1.00 (Whole)\n`;
+                } else {
+                    // Take a fraction
+                    const remainingCapacity = C - currentWeight;
+                    const fraction = remainingCapacity / item.weight;
+                    totalValue += item.value * fraction;
+                    currentWeight += remainingCapacity;
+                    output += `${item.id}\t${item.weight}\t${item.value}\t${item.ratio.toFixed(2)}\t${fraction.toFixed(2)} (Fraction)\n`;
+                    break; // Knapsack is full
+                }
+            }
+
+            output += `\nTotal Capacity: ${C}\nTotal Value: ${totalValue.toFixed(2)}\nTotal Weight Used: ${currentWeight.toFixed(2)}`;
+            return output;
+        }
+
+        function huffmanCoding(inputs) {
+            const text = inputs.inputText.toUpperCase().replace(/[^A-Z]/g, '');
+            if (text.length === 0) return 'Input text is empty or contains only non-alphabetic characters.';
+
+            // 1. Calculate Frequencies
+            const freqs = {};
+            for (const char of text) {
+                freqs[char] = (freqs[char] || 0) + 1;
+            }
+
+            // 2. Build Priority Queue (Min-Heap)
+            class Node {
+                constructor(char, freq, left = null, right = null) {
+                    this.char = char;
+                    this.freq = freq;
+                    this.left = left;
+                    this.right = right;
+                }
+            }
+
+            let nodes = Object.keys(freqs).map(char => new Node(char, freqs[char]));
+            nodes.sort((a, b) => a.freq - b.freq); // Simple array-based sort for priority queue
+
+            while (nodes.length > 1) {
+                // Extract two nodes with the lowest frequency (Greedy)
+                const left = nodes.shift();
+                const right = nodes.shift();
+
+                // Create a new internal node
+                const newNode = new Node(null, left.freq + right.freq, left, right);
+
+                // Insert the new node back, maintaining sort order
+                let inserted = false;
+                for (let i = 0; i < nodes.length; i++) {
+                    if (newNode.freq < nodes[i].freq) {
+                        nodes.splice(i, 0, newNode);
+                        inserted = true;
+                        break;
+                    }
+                }
+                if (!inserted) nodes.push(newNode);
+            }
+
+            const root = nodes[0];
+            const huffmanCodes = {};
+
+            // 3. Generate Codes
+            function generateCodes(node, code) {
+                if (node.char !== null) {
+                    huffmanCodes[node.char] = code;
+                    return;
+                }
+                generateCodes(node.left, code + '0');
+                generateCodes(node.right, code + '1');
+            } 
+
+            if (root) {
+                 if (root.char) { huffmanCodes[root.char] = '0'; }
+                 else { generateCodes(root, ''); }
+            }
+
+            // 4. Output
+            let output = 'Original Text: ' + text + '\n\n';
+            output += 'Character Frequencies:\n' + JSON.stringify(freqs, null, 2) + '\n\n';
+            output += 'Huffman Codes (Greedy Generation):\n';
+            for (const char in huffmanCodes) {
+                output += `  '${char}': ${huffmanCodes[char]}\n`;
+            }
+
+            const encodedText = Array.from(text).map(char => huffmanCodes[char]).join('');
+            const originalBits = text.length * 8; // Assuming 8-bit ASCII
+            const encodedBits = encodedText.length;
+            const compressionRatio = (1 - (encodedBits / originalBits)) * 100;
+
+            output += `\nEncoded Text (first 50 chars): ${encodedText.substring(0, 50)}...\n`;
+            output += `\nCompression Analysis (Assuming 8-bit ASCII):\n`;
+            output += `  Original Bits: ${originalBits}\n`;
+            output += `  Encoded Bits: ${encodedBits}\n`;
+            output += `  Compression Ratio: ${compressionRatio.toFixed(2)}%`;
+
+            return output;
+        }
+
+        function primsAlgorithm(inputs) {
+            const numNodes = inputs.numNodes;
+            const edges = inputs.edges;
+
+            if (!numNodes || numNodes < 2) return "Please enter a valid number of nodes (>= 2).";
+            if (edges.length === 0) return "Please enter edges.";
+
+            const graph = Array(numNodes).fill(0).map(() => Array(numNodes).fill(Number.MAX_SAFE_INTEGER));
+            for (let i = 0; i < numNodes; i++) graph[i][i] = 0;
+
+            for (const edge of edges) {
+                const [u, v, weight] = edge.map(Number);
+                if (u < numNodes && v < numNodes) {
+                    graph[u][v] = weight;
+                    graph[v][u] = weight; // Undirected graph
+                } else {
+                    return `Error: Node index out of bounds. Max index is ${numNodes - 1}.`;
+                }
+            }
+
+            const key = Array(numNodes).fill(Number.MAX_SAFE_INTEGER);
+            const mstSet = Array(numNodes).fill(false);
+            const parent = Array(numNodes).fill(-1);
+            let totalWeight = 0;
+            key[0] = 0; 
+
+            let output = "Minimum Spanning Tree (MST) Construction:\n\n";
+            output += "Edge\tWeight\n";
+            output += "-".repeat(20) + '\n';
+
+            for (let count = 0; count < numNodes - 1; count++) {
+                let min = Number.MAX_SAFE_INTEGER;
+                let min_index;
+
+                for (let v = 0; v < numNodes; v++) {
+                    if (mstSet[v] === false && key[v] < min) {
+                        min = key[v];
+                        min_index = v;
+                    }
+                }
+
+                if (min_index === undefined) {
+                    return output + "\nGraph is disconnected. Cannot form a spanning tree for all nodes.";
+                }
+
+                const u = min_index;
+                mstSet[u] = true;
+
+                if (parent[u] !== -1) {
+                    output += `${parent[u]} - ${u}\t${graph[u][parent[u]]}\n`;
+                    totalWeight += graph[u][parent[u]];
+                }
+
+                for (let v = 0; v < numNodes; v++) {
+                    if (graph[u][v] !== Number.MAX_SAFE_INTEGER && mstSet[v] === false && graph[u][v] < key[v]) {
+                        parent[v] = u;
+                        key[v] = graph[u][v];
+                    }
+                }
+            }
+
+            output += "-".repeat(20) + '\n';
+            output += `Total Minimum Spanning Tree Weight: ${totalWeight}`;
+            return output;
+        }
+
+        function egyptianFraction(inputs) {
+            let nr = inputs.numerator;
+            let dr = inputs.denominator;
+
+            if (nr <= 0 || dr <= 0) return "Error: Numerator and Denominator must be positive integers.";
+            if (nr >= dr) return "Error: For Egyptian Fraction decomposition, the fraction must be proper (Numerator < Denominator).";
+
+            let output = `Decomposing ${nr}/${dr} into an Egyptian Fraction:\n`;
+            let denominators = [];
+
+            while (nr !== 0) {
+                const x = Math.ceil(dr / nr);
+                denominators.push(x);
+                output += `  Next unit fraction: 1/${x}\n`;
+                nr = nr * x - dr;
+                dr = dr * x;
+            }
+
+            output += "\nFinal Egyptian Fraction Decomposition:\n";
+            output += `${inputs.numerator}/${inputs.denominator} = 1/${denominators.join(' + 1/')}`;
+            return output;
+        }
+
+        function activitySelection(inputs) {
+            let s = inputs.startTimes;
+            let f = inputs.finishTimes;
+
+            if (s.length !== f.length) return "Error: Start times and Finish times must have the same number of items.";
+            if (s.length === 0) return "Error: Please enter activities.";
+
+            let activities = s.map((start, i) => ({ id: i + 1, start, finish: f[i] }));
+            
+            // Greedy choice: Sort activities by finish time
+            activities.sort((a, b) => a.finish - b.finish);
+            
+            let output = "Activities sorted by finish time:\n";
+            activities.forEach(a => output += `  Activity ${a.id} (Start: ${a.start}, Finish: ${a.finish})\n`);
+
+            let selected = [];
+            let lastFinishTime = 0;
+            
+            output += "\nSelected Activities:\n";
+            
+            for(let i = 0; i < activities.length; i++) {
+                if (activities[i].start >= lastFinishTime) {
+                    selected.push(activities[i]);
+                    lastFinishTime = activities[i].finish;
+                    output += `  - Activity ${activities[i].id} (Start: ${activities[i].start}, Finish: ${activities[i].finish})\n`;
+                }
+            }
+            
+            output += `\nTotal activities selected: ${selected.length}`;
+            return output;
+        }
+
+        function jobSequencing(inputs) {
+            let ids = inputs.jobIds;
+            let deadlines = inputs.deadlines;
+            let profits = inputs.profits;
+
+            if (ids.length !== deadlines.length || ids.length !== profits.length) {
+                return "Error: Job IDs, Deadlines, and Profits must all have the same number of items.";
+            }
+
+            let jobs = ids.map((id, i) => ({ id, deadline: deadlines[i], profit: profits[i] }));
+
+            // Greedy choice: Sort jobs by profit in descending order
+            jobs.sort((a, b) => b.profit - a.profit);
+
+            let maxDeadline = Math.max(...deadlines);
+            let timeline = new Array(maxDeadline).fill(null); // Slots to fill
+            let totalProfit = 0;
+            let jobSequence = [];
+
+            let output = "Jobs sorted by profit (descending):\n";
+            jobs.forEach(j => output += `  Job ${j.id} (Deadline: ${j.deadline}, Profit: ${j.profit})\n`);
+            
+            output += `\nTimeline Slots Available: ${maxDeadline}\n\nJob Sequencing:\n`;
+
+            for (let job of jobs) {
+                // Find the latest possible slot for this job
+                for (let t = job.deadline - 1; t >= 0; t--) {
+                    if (timeline[t] === null) {
+                        timeline[t] = job.id;
+                        totalProfit += job.profit;
+                        jobSequence.push(job.id);
+                        output += `  Scheduled Job ${job.id} at slot ${t} (Deadline: ${job.deadline}, Profit: ${job.profit})\n`;
+                        break;
+                    }
+                }
+            }
+
+            output += `\nFinal Job Sequence: ${jobSequence.join(', ')}\n`;
+            output += `Total Profit: ${totalProfit}`;
+            return output;
+        }
+
+        function kruskalsAlgorithm(inputs) {
+            const numNodes = inputs.numNodes;
+            let edges = inputs.edges; // [[u, v, weight], ...]
+
+            if (!numNodes || numNodes < 2) return "Please enter a valid number of nodes (>= 2).";
+            if (edges.length === 0) return "Please enter edges.";
+            
+            // Helper class for Disjoint Set Union (DSU)
+            class DSU {
+                constructor(n) {
+                    this.parent = Array(n).fill(0).map((_, i) => i);
+                }
+                find(i) {
+                    if (this.parent[i] === i) return i;
+                    return this.parent[i] = this.find(this.parent[i]); // Path compression
+                }
+                union(i, j) {
+                    let rootI = this.find(i);
+                    let rootJ = this.find(j);
+                    if (rootI !== rootJ) {
+                        this.parent[rootI] = rootJ;
+                        return true; // Union successful
+                    }
+                    return false; // Cycle detected
+                }
+            }
+
+            // Greedy choice: Sort all edges by weight
+            edges.sort((a, b) => a[2] - b[2]);
+
+            let dsu = new DSU(numNodes);
+            let mst = [];
+            let totalWeight = 0;
+            let output = "Edges sorted by weight:\n";
+            edges.forEach(e => output += `  ${e[0]} - ${e[1]} (Weight: ${e[2]})\n`);
+            
+            output += "\nBuilding MST:\n";
+
+            for (let edge of edges) {
+                const [u, v, weight] = edge.map(Number);
+                if (dsu.union(u, v)) {
+                    mst.push(edge);
+                    totalWeight += weight;
+                    output += `  Adding edge ${u} - ${v} (Weight: ${weight})\n`;
+                } else {
+                    output += `  Skipping edge ${u} - ${v} (Creates a cycle)\n`;
+                }
+            }
+
+            if (mst.length < numNodes - 1) {
+                 return output + "\nGraph is disconnected. Cannot form a full spanning tree.";
+            }
+
+            output += "\nFinal MST Edges:\n";
+            mst.forEach(e => output += `  ${e[0]} - ${e[1]} (Weight: ${e[2]})\n`);
+            output += `\nTotal Minimum Spanning Tree Weight: ${totalWeight}`;
+            return output;
+        }
+        
+        function dijkstrasAlgorithm(inputs) {
+            const numNodes = inputs.numNodes;
+            const edges = inputs.edges;
+            const startNode = inputs.startNode;
+
+            if (!numNodes || numNodes <= 0) return "Invalid number of nodes.";
+            if (startNode < 0 || startNode >= numNodes) return `Start node must be between 0 and ${numNodes - 1}.`;
+
+            // 1. Build Adjacency List
+            const adj = new Array(numNodes).fill(0).map(() => []);
+            for (const edge of edges) {
+                const [u, v, weight] = edge.map(Number);
+                adj[u].push({ node: v, weight });
+                // For directed graph. If undirected, add: adj[v].push({ node: u, weight });
+            }
+
+            // 2. Initialize distances array and priority queue
+            const dist = new Array(numNodes).fill(Infinity);
+            dist[startNode] = 0;
+            
+            // Simple array-based priority queue
+            let pq = [{ node: startNode, dist: 0 }];
+            let visited = new Set();
+            let output = `Finding shortest paths from node ${startNode}:\n\n`;
+
+            while (pq.length > 0) {
+                // Sort to get min distance (inefficient for large graphs, but simple)
+                pq.sort((a, b) => a.dist - b.dist);
+                const { node: u, dist: d } = pq.shift();
+
+                if (visited.has(u)) continue;
+                visited.add(u);
+
+                output += `Visiting node ${u} (Current distance: ${d})\n`;
+
+                // 3. Relax edges
+                for (const { node: v, weight } of adj[u]) {
+                    if (dist[u] + weight < dist[v]) {
+                        dist[v] = dist[u] + weight;
+                        output += `  -> Updating node ${v} distance to ${dist[v]}\n`;
+                        pq.push({ node: v, dist: dist[v] });
+                    }
+                }
+            }
+
+            output += "\nFinal Shortest Distances from Node " + startNode + ":\n";
+            for (let i = 0; i < numNodes; i++) {
+                output += `  Node ${i}: ${dist[i] === Infinity ? 'Unreachable' : dist[i]}\n`;
+            }
+            return output;
+        }
+
+        function boruvkasAlgorithm(inputs) {
+            const numNodes = inputs.numNodes;
+            let edges = inputs.edges; // [[u, v, weight], ...]
+
+            if (!numNodes || numNodes < 2) return "Please enter a valid number of nodes (>= 2).";
+            if (edges.length === 0) return "Please enter edges.";
+            
+            // DSU class from Kruskal's
+            class DSU {
+                constructor(n) {
+                    this.parent = Array(n).fill(0).map((_, i) => i);
+                    this.numSets = n;
+                }
+                find(i) {
+                    if (this.parent[i] === i) return i;
+                    return this.parent[i] = this.find(this.parent[i]); // Path compression
+                }
+                union(i, j) {
+                    let rootI = this.find(i);
+                    let rootJ = this.find(j);
+                    if (rootI !== rootJ) {
+                        this.parent[rootI] = rootJ;
+                        this.numSets--;
+                        return true; // Union successful
+                    }
+                    return false; // Cycle detected
+                }
+            }
+
+            let dsu = new DSU(numNodes);
+            let mst = [];
+            let totalWeight = 0;
+            let output = "Running Boruvka's Algorithm:\n";
+            let iteration = 1;
+
+            while (dsu.numSets > 1) {
+                output += `\n--- Iteration ${iteration++} (Components: ${dsu.numSets}) ---\n`;
+                // cheapest[i] = { u, v, weight } stores the cheapest edge out of the component with root i
+                let cheapest = new Array(numNodes).fill(null);
+
+                // Find cheapest edge for each component
+                for (const edge of edges) {
+                    const [u, v, weight] = edge.map(Number);
+                    let rootU = dsu.find(u);
+                    let rootV = dsu.find(v);
+
+                    if (rootU !== rootV) {
+                        if (cheapest[rootU] === null || cheapest[rootU].weight > weight) {
+                            cheapest[rootU] = { u, v, weight };
+                        }
+                        if (cheapest[rootV] === null || cheapest[rootV].weight > weight) {
+                            cheapest[rootV] = { u, v, weight };
+                        }
+                    }
+                }
+                
+                let edgesAddedThisIteration = 0;
+                // Add cheapest edges to MST
+                for (let i = 0; i < numNodes; i++) {
+                    if (cheapest[i] !== null) {
+                        const { u, v, weight } = cheapest[i];
+                        if (dsu.union(u, v)) {
+                            mst.push([u, v, weight]);
+                            totalWeight += weight;
+                            output += `  Adding edge ${u} - ${v} (Weight: ${weight})\n`;
+                            edgesAddedThisIteration++;
+                        }
+                    }
+                }
+                
+                if (edgesAddedThisIteration === 0) {
+                     return output + "\nGraph is disconnected. Cannot form a full spanning tree.";
+                }
+            }
+
+            output += "\nFinal MST Edges:\n";
+            mst.forEach(e => output += `  ${e[0]} - ${e[1]} (Weight: ${e[2]})\n`);
+            output += `\nTotal Minimum Spanning Tree Weight: ${totalWeight}`;
+            return output;
+        }
+
+        /**
+         * Dial's Algorithm: A specialized Shortest Path Algorithm for graphs
+         * with small, non-negative integer edge weights. Uses a bucket array.
+         * 
+         */
+        function dialsAlgorithm(inputs) {
+            const numNodes = inputs.numNodes;
+            const edges = inputs.edges;
+            const startNode = inputs.startNode;
+            const maxWeight = inputs.maxWeight;
+
+            if (!numNodes || numNodes <= 0) return "Invalid number of nodes.";
+            if (startNode < 0 || startNode >= numNodes) return `Start node must be between 0 and ${numNodes - 1}.`;
+            if (maxWeight <= 0 || !Number.isInteger(maxWeight)) return "Max edge weight (W) must be a positive integer.";
+
+            // 1. Build Adjacency List
+            const adj = new Array(numNodes).fill(0).map(() => []);
+            for (const edge of edges) {
+                const [u, v, weight] = edge.map(Number);
+                if (weight > maxWeight || weight < 0 || !Number.isInteger(weight)) {
+                    return `Error: Edge weight ${weight} is invalid. Dial's requires non-negative integers <= Max Weight (${maxWeight}).`;
+                }
+                adj[u].push({ node: v, weight });
+            }
+
+            // 2. Initialize distances, buckets, and current bucket index
+            const dist = new Array(numNodes).fill(Infinity);
+            dist[startNode] = 0;
+            
+            // Bucket array of size W+1. Buckets store nodes.
+            // B[i] stores nodes with distance 'd' such that d mod (W+1) = i
+            const numBuckets = maxWeight + 1;
+            const buckets = new Array(numBuckets).fill(0).map(() => []);
+
+            // Insert start node into its bucket (0 mod W+1 = 0)
+            buckets[0].push(startNode);
+            let currentBucketIndex = 0;
+            let output = `Running Dial's Algorithm (W=${maxWeight}, Buckets=${numBuckets}):\n\n`;
+            let totalVisited = 0;
+
+            while (totalVisited < numNodes) {
+                // Find the first non-empty bucket starting from currentBucketIndex
+                while (buckets[currentBucketIndex].length === 0) {
+                    currentBucketIndex = (currentBucketIndex + 1) % numBuckets;
+                }
+
+                // Extract all nodes from the current bucket (distance d)
+                const u = buckets[currentBucketIndex].shift();
+                
+                if (dist[u] === Infinity) continue; // Skip if unreachable
+
+                totalVisited++;
+                output += `Visiting node ${u} (Current distance: ${dist[u]})\n`;
+
+                // 3. Relax edges
+                for (const { node: v, weight } of adj[u]) {
+                    const newDist = dist[u] + weight;
+
+                    if (newDist < dist[v]) {
+                        // Optimization: If v was already in a bucket, remove it first (O(1) deletion is hard with simple array)
+                        // For simplicity, we skip removing the old entry, allowing stale entries.
+                        // New entries will always be processed first due to lower distance.
+
+                        dist[v] = newDist;
+                        const newBucketIndex = newDist % numBuckets;
+                        buckets[newBucketIndex].push(v);
+                        output += `  -> Updating node ${v} distance to ${newDist} (Bucket: ${newBucketIndex})\n`;
+                    }
+                }
+            }
+
+            output += "\nFinal Shortest Distances from Node " + startNode + ":\n";
+            for (let i = 0; i < numNodes; i++) {
+                output += `  Node ${i}: ${dist[i] === Infinity ? 'Unreachable' : dist[i]}\n`;
+            }
+            return output;
+        }
+
+
+        // ** 5. Number Theory/System **
+
+        function gcdLcm(inputs) {
+            let a = Math.abs(Math.floor(inputs.numberA));
+            let b = Math.abs(Math.floor(inputs.numberB));
+
+            if (isNaN(a) || isNaN(b)) return "Error: Please enter valid numbers.";
+            if (a === 0 && b === 0) return "GCD and LCM are undefined for 0 and 0.";
+
+            // Euclidean Algorithm for GCD
+            function gcd(x, y) {
+                while (y) {
+                    [x, y] = [y, x % y];
+                }
+                return x;
+            }
+
+            const resultGcd = gcd(a, b);
+            let resultLcm;
+
+            if (a === 0 || b === 0) {
+                resultLcm = 0;
+            } else {
+                resultLcm = (a * b) / resultGcd;
+            }
+
+            return `Input Numbers: A=${inputs.numberA}, B=${inputs.numberB}\n(Using absolute integer values: ${a}, ${b})\n\n` +
+                   `Greatest Common Divisor (GCD) is: ${resultGcd}\n` +
+                   `Least Common Multiple (LCM) is: ${resultLcm}`;
+        }
+
+        function baseConversion(inputs) {
+            const num = inputs.numberInput;
+            const fromBase = inputs.fromBase;
+            const toBase = inputs.toBase;
+            
+            if (fromBase < 2 || fromBase > 36 || toBase < 2 || toBase > 36 || !Number.isInteger(fromBase) || !Number.isInteger(toBase)) {
+                return "Error: Bases must be integers between 2 and 36.";
+            }
+
+            // Step 1: Convert input number (string) from `fromBase` to decimal (base 10)
+            const decimalValue = parseInt(num, fromBase);
+            
+            if (isNaN(decimalValue)) {
+                return `Error: '${num}' is not a valid number in base ${fromBase}.`;
+            }
+            
+            // Step 2: Convert the decimal value to `toBase` (string)
+            const result = decimalValue.toString(toBase).toUpperCase();
+            
+            return `Converting '${num}' (Base ${fromBase}) to Base ${toBase}:\n\n` +
+                   `1. '${num}' (Base ${fromBase}) = ${decimalValue} (Base 10)\n` +
+                   `2. ${decimalValue} (Base 10) = '${result}' (Base ${toBase})\n\n` +
+                   `Result: ${result}`;
+        }
+
+
+        // ** 6. Identifying Prime **
+
+        function isPrime(inputs) {
+            const n = Math.floor(inputs.inputNumber);
+
+            if (isNaN(n)) return "Error: Please enter a valid integer.";
+            if (n <= 1) return `${n} is not a prime number (Primes must be > 1).`;
+            if (n <= 3) return `${n} is a prime number.`; // 2 and 3 are prime
+
+            let output = `Checking Primality for ${n}:\n\n`;
+
+            if (n % 2 === 0) return output + `${n} is not prime because it is divisible by 2.`;
+            if (n % 3 === 0) return output + `${n} is not prime because it is divisible by 3.`;
+
+            // Check divisors of the form 6k ± 1
+            for (let i = 5; i * i <= n; i = i + 6) {
+                if (n % i === 0) {
+                    return output + `${n} is not prime because it is divisible by ${i}.`;
+                }
+                if (n % (i + 2) === 0) {
+                    return output + `${n} is not prime because it is divisible by ${i + 2}.`;
+                }
+            }
+
+            return output + `${n} passed all checks and is a prime number.`;
+        }
+
+
+        // --- Initialization ---
+        window.onload = () => {
+            render();
+        };
+
+    </script>
+</body>
+</html>
